@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>资源管理中心</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2.0">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+    <div class="glass-header">
+        <div class="container">
+            <div class="row align-items-center g-3">
+                
+                <div class="col-12 col-md-12 col-lg-4">
+                    <h4 class="fw-bold m-0 d-flex align-items-center flex-wrap gap-2" style="color: var(--primary-accent);">
+                        <div><i class="fas fa-layer-group me-2 fs-5"></i>资源管理中心</div>
+                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill fw-normal" style="font-size: 0.7rem;">镜像管理端</span>
+                        
+                        {% if sys_meta.status == 'running' %}
+                            <span class="badge bg-warning text-dark border border-warning border-opacity-50 rounded-pill shadow-sm" style="font-size: 0.7rem;" title="系统正在执行自动检测任务">
+                                <i class="fas fa-sync-alt fa-spin me-1"></i>正在执行...
+                            </span>
+                        {% elif sys_meta.time %}
+                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill fw-normal" style="font-size: 0.7rem;" title="上次完整跑完的时间">
+                                <i class="fas fa-clock me-1"></i>上次全局巡检: {{ sys_meta.time | int | ctime }}
+                            </span>
+                        {% else %}
+                            <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill fw-normal" style="font-size: 0.7rem;">
+                                <i class="fas fa-bed me-1"></i>等待凌晨执行
+                            </span>
+                        {% endif %}
+                    </h4>
+                </div>
+
+                <div class="col-12 col-md-4 col-lg-3">
+                    <div class="input-group shadow-sm" style="border-radius: 8px; overflow: hidden;">
+                        <span class="input-group-text bg-white border-0 text-muted"><i class="fas fa-search"></i></span>
+                        <input type="text" class="form-control border-0 ps-0 bg-white" id="searchInput" placeholder="搜索软件名称..." onkeyup="filterApps()">
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-8 col-lg-5 d-flex flex-wrap justify-content-md-end gap-2 align-items-center">
+                    
+                    <button class="btn btn-custom btn-primary-custom shadow-sm" onclick="openAddModal()">
+                        <i class="fas fa-plus"></i> 新增配置
+                    </button>
+                    <button class="btn btn-custom btn-success shadow-sm" onclick="openUpdateManager()">
+                        <i class="fas fa-sync-alt"></i> 检查更新
+                    </button>
+
+                    <div class="dropdown">
+                        <button class="btn btn-custom btn-light border shadow-sm text-secondary fw-bold dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-toolbox text-primary"></i> 工具箱
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow border-0" style="border-radius: 8px;">
+                            <li>
+                                <button class="dropdown-item py-2 fw-medium" onclick="openRegexModal()">
+                                    <i class="fas fa-flask text-primary me-2" style="width: 16px;"></i> 正则沙盒
+                                </button>
+                            </li>
+                            <li>
+                                <button class="dropdown-item py-2 fw-medium" onclick="openLogsPanel()">
+                                    <i class="fas fa-clipboard-list text-info me-2" style="width: 16px;"></i> 运行日志
+                                </button>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <button class="dropdown-item py-2 fw-bold text-dark" onclick="openLiveTerminal()">
+                                    <i class="fas fa-terminal text-success me-2" style="width: 16px;"></i> Live Console
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <a href="/logout" class="btn btn-custom btn-light border shadow-sm text-danger" title="安全退出">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </a>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="container pb-5">
+        {% if apps %}
+        <div class="row g-4" id="appGrid">
+            {% for item in apps %}
+            <div class="col-xl-4 col-lg-6 col-md-6 app-item" data-name="{{ item.name | lower }}">
+                <div class="card h-100 software-card d-flex flex-column">
+                    <div class="card-body p-4 d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="app-name">
+                                <div class="bg-primary bg-opacity-10 text-primary rounded p-2 d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
+                                    <i class="fas fa-cube"></i>
+                                </div>
+                                {{ item.name }}
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn-action" onclick='openEditModal({{ item | tojson }})' title="编辑配置"><i class="fas fa-pen"></i></button>
+                                <button class="btn-action text-danger" onclick="deleteApp('{{ item.name }}')" title="删除软件"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </div>
+                        
+                        <a href="{{ item.url }}" target="_blank" class="url-box mb-3" title="访问官网">
+                            <i class="fas fa-external-link-alt text-primary"></i> 
+                            <span>{{ item.url }}</span>
+                        </a>
+                        
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold text-slate-700 mb-1">分发直链 (永久不变)</label>
+                            <div class="input-group input-group-sm">
+                                <input type="text" class="form-control bg-light text-primary fw-medium font-monospace" id="perm_{{ item.name }}" value="{{ base_url }}dl/{{ item.name }}/{{ item.name }}.exe" readonly>
+                                <button class="btn btn-outline-primary" onclick="copyText('perm_{{ item.name }}')" title="复制"><i class="far fa-copy"></i></button>
+                            </div>
+                        </div>
+
+                        <div class="mt-auto">
+                            <div class="d-flex gap-2 mb-3">
+                                <a href="/dl/{{ item.name }}/{{ item.name }}.exe?test=1" target="_blank" class="btn btn-custom btn-light border w-50 justify-content-center text-primary">
+                                    <i class="fas fa-bug"></i> 抓取测试
+                                </a>
+                                
+                                <button type="button" class="btn btn-custom btn-light border w-50 justify-content-center text-success fw-bold" onclick="quickSync('{{ item.name }}')">
+                                    <i class="fas fa-bolt"></i> 拉取缓存
+                                </button>
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center bg-slate-50 border rounded p-2 position-relative overflow-hidden">
+                                <span class="small text-muted fw-medium position-relative z-1"><i class="fas fa-server me-1"></i>本地缓存</span>
+                                
+                                <div class="status-container position-relative z-1" id="status_{{ item.name }}">
+                                    {% if item.get('file_ready') %}
+                                        <span class="status-pill status-ready" title="最后同步: {{ item.get('local_synced_at', 0) | int | ctime }}">
+                                            <i class="fas fa-check-circle"></i> 就绪 ({{ item.get('real_size_mb', 0) }} MB)
+                                        </span>
+                                    {% else %}
+                                        <span class="status-pill status-pending">
+                                            <i class="fas fa-cloud-download-alt"></i> 等待同步
+                                        </span>
+                                    {% endif %}
+                                </div>
+                                
+                                <div id="progress_bg_{{ item.name }}" style="position: absolute; left: 0; top: 0; height: 100%; width: 0%; background: #dbeafe; z-index: 0; transition: width 0.3s linear;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-light border-top-0 px-4 py-2 d-flex justify-content-between align-items-center" style="font-size: 0.75rem;">
+                        <span class="text-muted" id="time_fetched_{{ item.name }}">链接检查时间: {{ item.get('last_fetched', 0) | int | ctime }}</span>
+                        {% if item.get('direct_link') %}
+                            <span class="fw-bold text-warning"><i class="fas fa-link me-1"></i>直链模式</span>
+                        {% elif item.get('needs_browser') %}
+                            <span class="fw-bold text-danger"><i class="fab fa-chrome me-1"></i>动态渲染</span>
+                        {% else %}
+                            <span class="fw-bold text-success"><i class="fas fa-bolt me-1"></i>极速抓取</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-box-open"></i>
+            <h4 class="fw-bold text-dark mb-2">仓库空空如也</h4>
+            <p class="text-muted">点击右上角的 "新增配置" 开始添加你的第一个软件镜像吧。</p>
+            <button class="btn btn-primary-custom mt-3 px-4 py-2" onclick="openAddModal()">
+                <i class="fas fa-plus me-1"></i> 立即添加
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="modal fade" id="appModal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <form action="/api/save" method="POST" class="modal-content bg-light">
+          <div class="modal-header bg-white">
+            <h5 class="modal-title fw-bold" id="modalTitle"><i class="fas fa-cog text-primary me-2"></i>软件配置</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body p-4">
+            
+            <div class="config-section shadow-sm">
+                <h6 class="fw-bold mb-3 text-dark">1. 基础信息</h6>
+                <div class="row g-3">
+                    <div class="col-md-5">
+                        <label class="form-label small fw-bold text-muted">标识后缀 (唯一标识)</label>
+                        <input type="text" id="form_name" name="name" class="form-control bg-light" placeholder="如: wechat" required>
+                    </div>
+                    <div class="col-md-7">
+                        <label class="form-label small fw-bold text-muted">官网解析页地址</label>
+                        <input type="url" id="form_url" name="url" class="form-control" placeholder="https://..." required>
+                    </div>
+                </div>
+            </div>
+
+            <div class="config-section shadow-sm border-primary border-opacity-25 bg-primary bg-opacity-10 pb-2">
+                <div class="form-check form-switch d-flex align-items-center ps-0">
+                    <div class="flex-grow-1">
+                        <label class="form-check-label fw-bold text-primary mb-1" for="form_browser">
+                            <i class="fab fa-chrome me-1"></i> 启用动态页面渲染 (Playwright)
+                        </label>
+                        <div class="form-text mt-0 text-muted" style="font-size: 0.75rem;">适用于 Vue/React 等单页应用。开启后将模拟真实浏览器渲染并支持原生点击拦截。</div>
+                    </div>
+                    <input class="form-check-input ms-3" type="checkbox" id="form_browser" name="needs_browser" style="width: 3em; height: 1.5em; cursor: pointer;">
+                </div>
+            </div>
+            
+            <div class="config-section shadow-sm mb-0">
+                <h6 class="fw-bold mb-3 text-dark">2. 抓取规则 <span class="text-muted fw-normal" style="font-size: 0.8rem;">(自上而下匹配)</span></h6>
+                
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-dark">优先：正则表达式 <span class="badge bg-secondary ms-1 fw-normal">推荐</span></label>
+                    <input type="text" id="form_regex" name="regex_pattern" class="form-control font-monospace" placeholder='如: "url":\s*"([^"]+\.exe)"'>
+                    <div class="form-text" style="font-size: 0.75rem;">通过 () 捕获直链。如果是动态渲染拦截模式，请填入 <code>href="([^"]+)"</code></div>
+                </div>
+                
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label small text-muted">次选：CSS 选择器</label>
+                        <input type="text" id="form_css" name="css_selector" class="form-control font-monospace" placeholder="如: div.dl-box > a.win">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small text-muted">备选：按钮文本包含</label>
+                        <input type="text" id="form_text" name="link_text" class="form-control" placeholder="如: 下载 Windows 版">
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label small text-muted">备选：按钮 ID</label>
+                        <input type="text" id="form_id" name="element_id" class="form-control" placeholder="如: download-btn">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small text-muted">兜底：链接后缀关键词</label>
+                        <input type="text" id="form_keyword" name="keyword" class="form-control" placeholder="如: .exe">
+                    </div>
+                </div>
+                
+                <div class="border-top pt-3">
+                    <label class="form-label small fw-bold text-warning"><i class="fas fa-exclamation-triangle me-1"></i>硬编码直链 (最高优先级，将停用自动抓取)</label>
+                    <input type="text" id="form_direct" name="direct_link" class="form-control bg-warning bg-opacity-10 border-warning border-opacity-50" placeholder="http://.../latest.exe">
+                </div>
+            </div>
+
+          </div>
+          <div class="modal-footer bg-white py-3">
+            <button type="button" class="btn btn-light px-4 border" data-bs-dismiss="modal">取消</button>
+            <button type="submit" class="btn btn-primary-custom px-4"><i class="fas fa-save me-1"></i> 保存配置</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal fade" id="regexModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white border-0">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-magic me-2"></i>智能正则生成与测试沙盒</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0 bg-light">
+                    <div class="row g-0">
+                        <div class="col-lg-6 p-4 border-end">
+                            <label class="form-label small fw-bold text-dark mb-2">1. 粘贴目标网页片段 (HTML/JSON)</label>
+                            <textarea id="sandbox_source" class="form-control font-monospace mb-4 shadow-sm" rows="5" placeholder="在此粘贴 F12 复制的源码片段..."></textarea>
+                            
+                            <label class="form-label small fw-bold text-dark mb-2">2. 选择提取策略</label>
+                            <div class="bg-white p-3 rounded shadow-sm border">
+                                <select id="sandbox_strategy" class="form-select mb-3">
+                                    <option value="text">策略 A: 锚点提取 (按按钮文字)</option>
+                                    <option value="domain">策略 B: 精准提取 (按指定域名)</option>
+                                    <option value="ext">策略 C: 暴力提取 (仅按后缀名)</option>
+                                </select>
+                                
+                                <div id="param_text_area">
+                                    <label class="form-label small text-muted">按钮包含文字:</label>
+                                    <input type="text" id="sandbox_text" class="form-control" value="Windows" placeholder="如: Windows">
+                                </div>
+                                <div id="param_domain_area" style="display: none;">
+                                    <label class="form-label small text-muted">指定域名:</label>
+                                    <input type="text" id="sandbox_domain" class="form-control mb-2" value="cdn.aliyundrive.net" placeholder="如: cdn.domain.com">
+                                </div>
+                                <div id="param_ext_area" style="display: none;">
+                                    <label class="form-label small text-muted">文件后缀:</label>
+                                    <input type="text" id="sandbox_ext" class="form-control" value=".exe" placeholder="如: .exe">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-lg-6 p-4 bg-white">
+                            <label class="form-label small fw-bold text-dark mb-2">3. 自动生成的正则表达式</label>
+                            <div class="input-group mb-4 shadow-sm">
+                                <input type="text" id="sandbox_pattern" class="form-control font-monospace bg-light text-primary fw-bold fs-6" readonly>
+                                <button class="btn btn-primary" onclick="copySandboxRegex()" title="复制正则"><i class="fas fa-copy"></i> 复制</button>
+                            </div>
+                            
+                            <label class="form-label small fw-bold text-dark mb-2">4. 实时提取结果</label>
+                            <div class="card border border-success shadow-sm h-50">
+                                <div class="card-header bg-success bg-opacity-10 border-success border-opacity-25 text-success fw-bold pt-3 pb-2">
+                                    <i class="fas fa-crosshairs me-1"></i> 最终直链 (Group 1)
+                                </div>
+                                <div class="card-body d-flex align-items-center">
+                                    <div id="sandbox_group_match" class="font-monospace fw-bold text-break text-success fs-5 w-100">等待输入...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="updateModal" data-bs-backdrop="static" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white border-0">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-cloud-download-alt me-2"></i>镜像更新管理器</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" id="btnCloseUpdate"></button>
+                </div>
+                <div class="modal-body p-4 bg-light">
+                    
+                    <div id="scanProgressArea" class="text-center py-5">
+                        <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;"></div>
+                        <h5 id="scanStatusText" class="fw-bold text-dark mb-2">准备扫描...</h5>
+                        <p class="text-muted small mb-4" id="scanSubText">正在连接源站获取最新版本信息</p>
+                        <div class="progress shadow-sm" style="height: 12px; border-radius: 10px;">
+                            <div id="scanProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div id="updateListArea" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-end mb-3">
+                            <h6 class="fw-bold m-0 text-dark">可更新的软件列表</h6>
+                            <span class="badge bg-primary rounded-pill" id="updateCountBadge">0 项</span>
+                        </div>
+                        <div class="table-responsive bg-white rounded-3 shadow-sm border">
+                            <table class="table table-hover mb-0 align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 50px; text-align: center;">
+                                            <input type="checkbox" class="form-check-input border-secondary" id="checkAllUpdates" checked onclick="toggleAllUpdates(this)">
+                                        </th>
+                                        <th>软件标识</th>
+                                        <th>更新原因</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="updateTableBody">
+                                    </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="modal-footer bg-white py-3" id="updateFooter" style="display: none;">
+                    <button type="button" class="btn btn-light px-4 border" data-bs-dismiss="modal">暂不更新</button>
+                    <button type="button" class="btn btn-success px-4 fw-bold" id="btnStartSync" onclick="startSelectedSync()">
+                        <i class="fas fa-download me-1"></i> 同步选中项
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="offcanvas offcanvas-end shadow" tabindex="-1" id="logsOffcanvas" style="width: 450px; border-left: none;">
+        <div class="offcanvas-header bg-light border-bottom">
+            <h5 class="offcanvas-title fw-bold text-dark">
+                <i class="fas fa-history text-primary me-2"></i>同步执行日志
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body p-0 bg-white" style="overflow-y: auto;">
+            <ul class="list-group list-group-flush" id="logsContainer">
+                <li class="list-group-item text-center text-muted py-4">加载中...</li>
+            </ul>
+        </div>
+    </div>
+
+    <div id="floatingTerminal" class="shadow-lg" style="display: none; position: fixed; bottom: 0; left: 0; width: 100%; height: 35vh; background-color: #1e1e1e; border-top: 1px solid #444; z-index: 1050; flex-direction: column;">
+        <div class="d-flex justify-content-between align-items-center px-3 py-1" style="background-color: #2d2d2d;">
+            <span class="text-light mb-0" style="font-family: monospace; font-size: 0.85rem;">
+                <i class="fas fa-terminal text-success me-2"></i>Live_Console
+            </span>
+            <div>
+                <button type="button" class="btn btn-sm btn-link text-secondary text-decoration-none" onclick="clearTerminal()">
+                    <i class="fas fa-eraser"></i> Clear
+                </button>
+                <button type="button" class="btn-close btn-close-white ms-3" aria-label="Close" style="font-size: 0.7rem;" onclick="closeLiveTerminal()"></button>
+            </div>
+        </div>
+        <div id="terminalOutput" class="p-3" style="flex-grow: 1; overflow-y: auto; font-family: 'Consolas', 'Courier New', monospace; font-size: 0.85rem; line-height: 1.5; color: #d4d4d4; white-space: pre-wrap;">
+            <div class="text-success">> System initialized. Waiting for task execution...</div>
+        </div>
+    </div>
+
+    <script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

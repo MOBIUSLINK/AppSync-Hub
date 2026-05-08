@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.DS_Store
+downloads/
+# Leave apps_pro.json if you want to ship the initial config, but usually databases are ignored.
+# We will ship the clean apps_pro.json, but ignore user-specific downloads.
