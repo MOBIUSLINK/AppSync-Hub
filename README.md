@@ -13,8 +13,9 @@
 - **🕒 全局定时同步 (APScheduler)**：告别手动维护！系统会在凌晨空闲时段自动巡检所有配置的软件，发现更新则立刻静默拉取。
 - **📊 现代化管理面板**：提供可视化软件配置、抓取规则正则沙盒测试、运行日志实时推送（基于 SSE 协议），以及 Live Console 终端监听。
 - **📦 轻量级免部署架构**：采用 TinyDB 基于单 JSON 文件的本地数据库，摆脱 MySQL/Redis 的繁重依赖。内置 Waitress 生产级多线程服务器，即插即用。
-- <img width="1974" height="1929" alt="image" src="https://github.com/user-attachments/assets/d32309ba-78d2-4567-bcc6-4a16ed362649" />
 
+## ✨ 界面预览
+- <img width="1974" height="1929" alt="image" src="https://github.com/user-attachments/assets/d32309ba-78d2-4567-bcc6-4a16ed362649" />
 
 ## 🛠️ 技术栈
 
